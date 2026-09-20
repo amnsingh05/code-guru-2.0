@@ -1764,18 +1764,21 @@ def chat(request: ChatRequest) -> Dict[str, Any]:
 # FRONTEND ROUTES
 # ============================================================
 
-FRONTEND_FILES = {
-    "index.html",
-    "login.html",
-    "dashboard.html",
-    "style.css",
-    "theme.js",
-    "features-data.js",
-    "firebase-config.js",
-    "auth.js",
-    "api-config.js",
-    "api.js",
-    "chat.js",
+FRONTEND_ROUTES = {
+    "index": "index.html",
+    "index.html": "index.html",
+    "login": "login.html",
+    "login.html": "login.html",
+    "dashboard": "dashboard.html",
+    "dashboard.html": "dashboard.html",
+    "style.css": "style.css",
+    "theme.js": "theme.js",
+    "features-data.js": "features-data.js",
+    "firebase-config.js": "firebase-config.js",
+    "auth.js": "auth.js",
+    "api-config.js": "api-config.js",
+    "api.js": "api.js",
+    "chat.js": "chat.js",
 }
 
 
@@ -1786,9 +1789,10 @@ def root() -> FileResponse:
 
 @app.get("/{filename}", include_in_schema=False)
 def frontend_file(filename: str) -> FileResponse:
-    if filename not in FRONTEND_FILES:
+    frontend_file_name = FRONTEND_ROUTES.get(filename)
+    if not frontend_file_name:
         raise HTTPException(status_code=404, detail="Not found")
-    return FileResponse(PROJECT_DIR / filename)
+    return FileResponse(PROJECT_DIR / frontend_file_name)
 
 
 # ============================================================
