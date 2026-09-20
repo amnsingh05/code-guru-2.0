@@ -2,11 +2,11 @@
 // The Firebase web config is public; protect user data with Firebase Auth and
 // appropriate Firestore/Storage security rules.
 export const firebaseConfig = {
-  apiKey: "AIzaSyDOqpEuQ-vizymXD8jvqfR75lgSyCZcBIk",
-  authDomain: "codeguru-32b.firebaseapp.com",
-  projectId: "codeguru-32b",
-  storageBucket: "codeguru-32b.firebasestorage.app",
-  messagingSenderId: "561725553336",
-  appId: "1:561725553336:web:dbcf30214f7b9261c6124d",
-  measurementId: "G-4KPRN9D5B5",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
