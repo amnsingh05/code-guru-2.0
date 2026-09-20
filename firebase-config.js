@@ -1,12 +1,20 @@
 // Firebase web configuration for CodeGuru.
-// The Firebase web config is public; protect user data with Firebase Auth and
-// appropriate Firestore/Storage security rules.
-export const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-};
+//
+// This project is served directly by FastAPI, not bundled by Vite. Therefore
+// import.meta.env is unavailable in the browser. The deployed FastAPI function
+// reads Vercel environment variables and exposes this *public Firebase web
+// configuration only at runtime.
+const response = await fetch('/api/firebase-config', { cache: 'no-store' });
+
+if (!response.ok) {
+  let detail = 'Firebase configuration could not be loaded.';
+  try {
+    const payload = await response.json();
+    detail = payload.detail || detail;
+  } catch {
+    // Keep the useful fallback message when a proxy returns non-JSON content.
+  }
+  throw new Error(detail);
+}
+
+export const firebaseConfig = await response.json();

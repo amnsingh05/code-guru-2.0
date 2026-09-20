@@ -151,7 +151,7 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -1200,6 +1200,49 @@ CODEGURU RESPONSE:
 # ============================================================
 # API ROUTES - GENERAL
 # ============================================================
+
+FIREBASE_CONFIG_ENVIRONMENT_NAMES: Dict[str, tuple[str, str]] = {
+    "apiKey": ("FIREBASE_API_KEY", "VITE_FIREBASE_API_KEY"),
+    "authDomain": ("FIREBASE_AUTH_DOMAIN", "VITE_FIREBASE_AUTH_DOMAIN"),
+    "projectId": ("FIREBASE_PROJECT_ID", "VITE_FIREBASE_PROJECT_ID"),
+    "storageBucket": ("FIREBASE_STORAGE_BUCKET", "VITE_FIREBASE_STORAGE_BUCKET"),
+    "messagingSenderId": (
+        "FIREBASE_MESSAGING_SENDER_ID",
+        "VITE_FIREBASE_MESSAGING_SENDER_ID",
+    ),
+    "appId": ("FIREBASE_APP_ID", "VITE_FIREBASE_APP_ID"),
+    "measurementId": ("FIREBASE_MEASUREMENT_ID", "VITE_FIREBASE_MEASUREMENT_ID"),
+}
+
+
+@app.get("/api/firebase-config", include_in_schema=False)
+def firebase_web_config() -> JSONResponse:
+    """Return the public Firebase web configuration from runtime environment.
+
+    The Firebase Web API key identifies the Firebase project and is necessarily
+    visible to a browser client. Keep authorization in Firebase Auth, Security
+    Rules and App Check; never return private service-account credentials here.
+    Both FIREBASE_* and existing VITE_FIREBASE_* Vercel variable names work.
+    """
+    config = {
+        field: next(
+            (os.getenv(name, "").strip() for name in names if os.getenv(name, "").strip()),
+            "",
+        )
+        for field, names in FIREBASE_CONFIG_ENVIRONMENT_NAMES.items()
+    }
+    missing = [field for field, value in config.items() if not value]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Firebase is not configured on this deployment. Add these Vercel "
+                "environment variables and redeploy: "
+                + ", ".join(FIREBASE_CONFIG_ENVIRONMENT_NAMES[field][0] for field in missing)
+            ),
+        )
+
+    return JSONResponse(config, headers={"Cache-Control": "no-store"})
 
 @app.get("/api/health")
 def health() -> Dict[str, Any]:
