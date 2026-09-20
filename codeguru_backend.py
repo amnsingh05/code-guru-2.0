@@ -202,10 +202,15 @@ OLLAMA_BASE_URL = os.getenv(
 # Keep runtime files outside the frontend project. VS Code Live Server watches
 # the project directory and would otherwise reload the dashboard whenever a
 # chat updates SQLite or a user uploads a file.
-DEFAULT_DATA_DIR = (
-    Path(os.getenv("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
-    / "CodeGuru"
-)
+# Vercel functions have a read-only deployment filesystem. Its only writable
+# location is /tmp, so keep transient serverless data there at import time.
+if os.getenv("VERCEL"):
+    DEFAULT_DATA_DIR = Path("/tmp") / "codeguru"
+else:
+    DEFAULT_DATA_DIR = (
+        Path(os.getenv("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+        / "CodeGuru"
+    )
 DATA_DIR = Path(os.getenv("CODEGURU_DATA_DIR", str(DEFAULT_DATA_DIR)))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
