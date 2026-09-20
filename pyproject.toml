@@ -1,0 +1,2 @@
+[tool.vercel]
+entrypoint = "codeguru_backend:app"
