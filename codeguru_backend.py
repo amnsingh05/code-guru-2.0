@@ -151,6 +151,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 # LangChain / Ollama
@@ -193,6 +195,7 @@ except ImportError:
 APP_NAME = "CodeGuru"
 HOST = os.getenv("CODEGURU_HOST", "0.0.0.0")
 PORT = int(os.getenv("CODEGURU_PORT", "8000"))
+PROJECT_DIR = Path(__file__).resolve().parent
 
 OLLAMA_BASE_URL = os.getenv(
     "OLLAMA_BASE_URL",
@@ -306,6 +309,15 @@ app = FastAPI(
     title="CodeGuru API",
     version="1.0.0",
     description="Local AI + RAG backend for CodeGuru",
+)
+
+# Serve the existing static frontend from the same Vercel deployment. Only the
+# public assets directory is mounted; individual root-level files are allowlisted
+# below to avoid exposing Python code or local data files.
+app.mount(
+    "/assets",
+    StaticFiles(directory=str(PROJECT_DIR / "assets")),
+    name="assets",
 )
 
 # Local development CORS. Add a comma-separated CODEGURU_ALLOWED_ORIGINS
@@ -1749,18 +1761,34 @@ def chat(request: ChatRequest) -> Dict[str, Any]:
 
 
 # ============================================================
-# OPTIONAL: SIMPLE TEST ENDPOINT
+# FRONTEND ROUTES
 # ============================================================
 
-@app.get("/")
-def root() -> Dict[str, Any]:
-    return {
-        "name": "CodeGuru",
-        "message": "CodeGuru Python backend is running.",
-        "docs": "/docs",
-        "models": "/api/models",
-        "health": "/api/health",
-    }
+FRONTEND_FILES = {
+    "index.html",
+    "login.html",
+    "dashboard.html",
+    "style.css",
+    "theme.js",
+    "features-data.js",
+    "firebase-config.js",
+    "auth.js",
+    "api-config.js",
+    "api.js",
+    "chat.js",
+}
+
+
+@app.get("/", include_in_schema=False)
+def root() -> FileResponse:
+    return FileResponse(PROJECT_DIR / "index.html")
+
+
+@app.get("/{filename}", include_in_schema=False)
+def frontend_file(filename: str) -> FileResponse:
+    if filename not in FRONTEND_FILES:
+        raise HTTPException(status_code=404, detail="Not found")
+    return FileResponse(PROJECT_DIR / filename)
 
 
 # ============================================================

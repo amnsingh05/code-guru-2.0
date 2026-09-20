@@ -10,11 +10,11 @@
     if (isLocalHost) return localUrl;
     try {
       const response = await fetch('/api/runtime-config', { cache: 'no-store' });
-      if (!response.ok) return '';
+      if (!response.ok) return window.location.origin;
       const config = await response.json();
-      return config.apiUrl || '';
+      return config.apiUrl || window.location.origin;
     } catch {
-      return '';
+      return window.location.origin;
     }
   })();
 })();
