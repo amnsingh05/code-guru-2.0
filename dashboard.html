@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chat — CodeGuru</title>
+<link rel="icon" href="assets/codegurulogo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  html,body{height:100%;overflow:hidden;}
+  .app{display:grid;grid-template-columns:264px 1fr;height:100vh;overflow:hidden;}
+
+  /* Sidebar */
+  .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;}
+  .side-top{padding:18px 16px 12px;}
+  .brand-mini{display:flex;align-items:center;gap:9px;font-family:var(--font-head);font-weight:700;font-size:17px;margin-bottom:16px;}
+  .brand-mini img{height:22px;width:auto;display:block;border-radius:6px;}
+  .new-chat{
+    width:100%;display:flex;align-items:center;gap:8px;justify-content:center;
+    padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--surface-2);
+    color:var(--text);font-weight:600;font-size:13.5px;
+  }
+  .new-chat:hover{background:var(--ink);}
+  .history{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:6px 10px;}
+  .history-label{font-size:11px;text-transform:none;color:var(--text-muted);padding:14px 8px 6px;font-family:var(--font-mono);}
+  .history-item{
+    display:block;width:100%;text-align:left;padding:9px 10px;border-radius:8px;border:none;background:transparent;
+    color:var(--text-muted);font-size:13.5px;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .history-item:hover{background:var(--surface-2);color:var(--text);}
+  .history-item.active{background:var(--surface-2);color:var(--text);}
+  .side-bottom{border-top:1px solid var(--border);padding:12px;display:flex;align-items:center;gap:10px;}
+  .avatar{width:32px;height:32px;border-radius:8px;background:var(--amber);color:var(--amber-ink);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;}
+  .side-user{flex:1;min-width:0;}
+  .side-user .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .side-user .role{font-size:11.5px;color:var(--text-muted);}
+  .icon-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;}
+  .icon-btn:hover{background:var(--ink);}
+
+  /* Main */
+  .main{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;}
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;padding:12px 22px;
+    border-bottom:1px solid var(--border);flex-shrink:0;
+  }
+  select#modelSelect{
+    background:var(--surface-2);border:1px solid var(--border);color:var(--text);
+    padding:8px 12px;border-radius:9px;font-size:13.5px;font-weight:600;font-family:inherit;
+  }
+  .top-actions{display:flex;gap:8px;}
+  .mobile-menu{display:none;}
+  .connection{font:11px var(--font-mono);color:var(--mint);display:flex;align-items:center;gap:6px;margin-right:4px;}
+  .connection-button{border:1px solid var(--border);border-radius:999px;background:var(--surface);padding:7px 10px;transition:background .2s,transform .2s}.connection-button:hover{background:var(--surface-2);transform:translateY(-1px)}
+  .connection::before{content:"";width:7px;height:7px;background:currentColor;border-radius:50%;}
+  .settings-panel{position:fixed;right:18px;top:65px;width:min(380px,calc(100vw - 36px));z-index:60;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.3);display:none;}
+  .settings-panel.open{display:block;}.settings-panel h2{font-size:17px;margin:0 0 5px;}.settings-panel p{font-size:12.5px;color:var(--text-muted);line-height:1.5;margin:0 0 15px;}.mode-switch{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface-2);padding:4px;border-radius:10px;margin-bottom:14px;}.mode-switch button{border:0;background:transparent;color:var(--text-muted);border-radius:7px;padding:9px;font-weight:600;line-height:1.35}.mode-switch button small{font-size:10px;font-weight:500;opacity:.8}.mode-switch button.active{background:var(--ink);color:var(--text);box-shadow:0 2px 7px rgba(0,0,0,.08)}.settings-panel input{width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font:13px var(--font-mono);margin-bottom:7px}.settings-panel label{display:block;font-size:12px;color:var(--text-muted);margin:0 0 6px}.connection-note{font-size:11px!important;margin:0 0 14px!important}.connection-note code{font-size:10px;color:var(--blue)}.settings-save{width:100%;border:0;border-radius:8px;background:var(--amber);padding:10px;font-weight:700;color:var(--amber-ink)}
+
+  .chat-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:26px 0 10px;}
+  .chat-inner{max-width:760px;margin:0 auto;padding:0 24px;}
+
+  .welcome{text-align:center;padding:60px 20px;}
+  .welcome h1{font-size:26px;margin:0 0 8px;}
+  .welcome p{color:var(--text-muted);margin:0 0 26px;}
+  .quick-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:640px;margin:0 auto;}
+  .quick-card{
+    text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:14px;font-size:13px;color:var(--text-muted);
+  }
+  .quick-card b{display:block;color:var(--text);font-size:13.5px;margin-bottom:3px;}
+  .quick-card:hover{background:var(--surface-2);}
+
+  .msg-row{display:flex;gap:14px;margin-bottom:22px;}
+  .msg-row .who{width:30px;height:30px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:var(--font-mono);}
+  .who.user{background:var(--surface-2);color:var(--text-muted);}
+  .who.bot{background:var(--amber);color:var(--amber-ink);}
+  .msg-body{padding-top:4px;line-height:1.6;font-size:14.5px;max-width:100%;}
+  .message-bullet{display:block;padding-left:3px;}
+  .msg-body pre{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:var(--font-mono);font-size:13px;overflow-x:auto;margin:10px 0;}
+  .msg-body code{font-family:var(--font-mono);background:var(--surface);padding:1px 5px;border-radius:4px;font-size:13px;}
+  .typing{display:inline-flex;gap:4px;padding-top:8px;}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--text-muted);animation:blink 1.2s infinite ease-in-out;}
+  .typing span:nth-child(2){animation-delay:.2s;}
+  .typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+
+  .composer{border-top:1px solid var(--border);padding:14px 24px 20px;flex-shrink:0;}
+  .composer-inner{max-width:760px;margin:0 auto;}
+  .action-chips{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+  .action-chip{
+    display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:6px 11px;border-radius:999px;
+    border:1px solid var(--border);background:var(--surface);color:var(--text-muted);
+  }
+  .action-chip:hover{background:var(--surface-2);color:var(--text);}
+  .action-chip svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;}
+  .input-row{display:flex;gap:10px;align-items:flex-end;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 10px 10px 16px;}
+  .input-row textarea{
+    flex:1;border:none;background:transparent;color:var(--text);font-family:inherit;font-size:14.5px;
+    resize:none;max-height:160px;padding:6px 0;line-height:1.5;
+  }
+  .send-btn{
+    width:38px;height:38px;border-radius:11px;border:none;background:var(--amber);color:var(--amber-ink);
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  }
+  .send-btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;}
+  .disclaimer{text-align:center;font-size:11.5px;color:var(--text-muted);margin-top:10px;}
+
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;}
+    .sidebar{position:fixed;inset:0 30% 0 0;z-index:40;transform:translateX(-100%);transition:transform .2s ease;}
+    .sidebar.open{transform:translateX(0);}
+    .quick-grid{grid-template-columns:1fr;}
+    .mobile-menu{display:flex;}.connection{display:none;}.topbar{padding:12px 14px;}.composer{padding:12px 14px 16px;}.chat-inner{padding:0 16px;}
+  }
+  /* Calm product workspace refinements */
+  .sidebar{background:color-mix(in srgb,var(--surface) 80%,transparent);backdrop-filter:blur(20px);}
+  .side-top{padding:20px 14px 13px;}.brand-mini{font-size:16px;}.brand-mini img{height:25px;}
+  .new-chat{background:var(--blue);border:0;color:#fff;border-radius:10px;padding:11px;}.new-chat:hover{background:#0077ed;}
+  .history-label{font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding-top:20px;}.history-item{border-radius:9px;font-size:12px;}
+  .side-bottom{background:color-mix(in srgb,var(--surface-2) 60%,transparent);}.avatar{background:var(--blue);color:#fff;border-radius:50%;}
+  .topbar{background:color-mix(in srgb,var(--ink) 74%,transparent);backdrop-filter:blur(20px);padding:11px 22px;}
+  select#modelSelect{background:transparent;border:0;font-size:13px;padding:8px;color:var(--text);}
+  .icon-btn{background:transparent;border:0;border-radius:50%;}.icon-btn:hover{background:var(--surface-2);}
+  .chat-scroll{background:radial-gradient(circle at 50% 0,color-mix(in srgb,var(--blue) 7%,transparent),transparent 35%);}
+  .welcome{padding-top:72px;}.welcome h1{font-size:34px;letter-spacing:-.04em;}.welcome p{font-size:14px;}
+  .quick-grid{grid-template-columns:repeat(3,1fr);gap:9px;}.quick-card{background:color-mix(in srgb,var(--surface) 78%,transparent);border-radius:15px;padding:15px;min-height:92px;}.quick-card:hover{background:var(--surface-2);transform:translateY(-1px);}
+  .composer{padding-bottom:18px;background:color-mix(in srgb,var(--ink) 75%,transparent);backdrop-filter:blur(20px);}
+  .action-chips{justify-content:center;}.action-chip{background:transparent;border:0;font-size:11px;padding:5px 8px;}.input-row{border-radius:18px;background:var(--surface-2);box-shadow:0 8px 25px rgba(0,0,0,.07);}.send-btn{background:var(--blue);border-radius:50%;}
+  .settings-panel{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(22px);border-radius:20px;}.settings-save{background:var(--blue);}
+  @media(max-width:760px){.quick-grid{grid-template-columns:1fr 1fr;}.welcome{padding-top:42px;}.welcome h1{font-size:29px;}}
+  .sidebar{animation:cg-rise .45s ease both}.topbar{animation:cg-rise .45s .06s ease both}.welcome{animation:cg-rise .6s .15s ease both}.quick-card{transition:transform .22s ease,background .22s ease,box-shadow .22s ease}.quick-card:hover{box-shadow:0 12px 28px rgba(0,0,0,.08)}.msg-row{animation:cg-rise .35s ease both}.input-row:focus-within{border-color:color-mix(in srgb,var(--blue) 55%,var(--border));box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 12%,transparent),0 8px 25px rgba(0,0,0,.07)}.send-btn{transition:transform .2s,background .2s}.send-btn:hover{transform:scale(1.08)}.settings-panel.open{animation:cg-rise .25s ease both}.connection:before{animation:cg-pulse 2.4s ease-in-out infinite}
+  @media(max-width:760px){html,body{height:100%;height:100dvh}.app{height:100dvh}.sidebar{inset:0 auto 0 0;width:min(86vw,340px);box-shadow:18px 0 45px rgba(0,0,0,.18)}.sidebar.open{transform:translateX(0)}.topbar{min-height:58px}.top-actions{margin-left:auto}.connection{display:none}.chat-scroll{padding-top:12px}.chat-inner{padding:0 14px}.welcome{padding:35px 0 20px}.welcome h1{font-size:28px;line-height:1.1}.welcome p{font-size:13px;padding:0 10px}.quick-grid{gap:8px}.quick-card{padding:13px;min-height:82px;font-size:11px}.quick-card b{font-size:12px}.composer{padding:10px 12px calc(12px + env(safe-area-inset-bottom))}.action-chips{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;padding:2px 1px 7px;margin-bottom:5px;scrollbar-width:none}.action-chips::-webkit-scrollbar{display:none}.action-chip{white-space:nowrap;flex:0 0 auto}.input-row{padding:8px 8px 8px 13px;border-radius:16px}.input-row textarea{font-size:16px;min-height:28px}.send-btn{width:40px;height:40px}.disclaimer{font-size:10px;margin-top:7px}.settings-panel{top:62px;right:12px;width:calc(100vw - 24px);max-width:none}.msg-row{gap:10px;margin-bottom:18px}.msg-row .who{width:28px;height:28px;font-size:10px}.msg-body{font-size:14px}.msg-body pre{font-size:12px;padding:10px;max-width:calc(100vw - 66px)}}@media(max-width:360px){.quick-grid{grid-template-columns:1fr}.welcome{padding-top:20px}.topbar{padding:9px 10px}.composer{padding-left:8px;padding-right:8px}}
+  #linkGoogleBtn{font-size:13px;font-weight:800;color:#4285f4;font-family:Arial,sans-serif}.password-link-btn{font-size:18px;font-weight:400;color:var(--blue)}.account-panel{top:65px}.account-error{min-height:17px;color:var(--danger)!important;font-size:11px!important;margin:2px 0 10px!important}.sidebar-backdrop{display:none}@media(max-width:760px){.sidebar-backdrop{display:block;position:fixed;inset:0;z-index:35;border:0;background:rgba(0,0,0,.24);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s ease}.sidebar-backdrop.show{opacity:1;pointer-events:auto}}
+  /* Dashboard control clarity and account/file tools */
+  .history-heading{display:flex;align-items:center;justify-content:space-between;padding:15px 9px 8px;color:var(--text-muted);font:10px var(--font-mono);letter-spacing:.05em;text-transform:uppercase}.history-heading button{border:0;background:transparent;color:var(--blue);font:600 11px var(--font-body);padding:4px;opacity:.9}.history-heading button:hover{opacity:1;text-decoration:underline}.history-row{display:flex;align-items:center;gap:2px;margin:2px 0}.history-item{flex:1;min-width:0}.delete-chat{width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:var(--text-muted);font-size:16px;opacity:0}.history-row:hover .delete-chat,.history-row:focus-within .delete-chat{opacity:1}.delete-chat:hover{color:var(--danger);background:color-mix(in srgb,var(--danger) 10%,transparent)}
+  .profile-trigger{width:100%;display:flex;align-items:center;gap:10px;min-width:0;padding:4px;border:0;border-radius:12px;background:transparent;color:var(--text);text-align:left}.profile-trigger:hover{background:var(--surface-2)}.profile-trigger .side-user{display:flex;flex-direction:column;gap:2px}.profile-chevron{margin-left:auto;color:var(--text-muted);font-size:17px}.model-control{display:flex;align-items:center;gap:9px;min-width:0;padding:6px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface-2);color:var(--text)}.model-control>span{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-muted);font-weight:700}.model-control select{min-width:150px;max-width:260px;background:var(--surface-2)!important;color:var(--text)!important;border:0!important;outline:0;font-size:13px!important;font-weight:700!important;appearance:auto;color-scheme:light}.model-control select option{background:#fff;color:#1d1d1f}:root[data-theme="dark"] .model-control select{color-scheme:dark}:root[data-theme="dark"] .model-control select option{background:#1c1c1e;color:#f5f5f7}
+  .profile-top-btn{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:50%;background:var(--surface-2);color:#fff;padding:0;overflow:hidden;transition:transform .2s,box-shadow .2s}.profile-top-btn:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(0,0,0,.15)}.profile-top-btn span{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(135deg,var(--blue),#7959e8);font-size:12px;font-weight:800}.topbar #themeToggle{width:34px;height:34px;border:1px solid var(--border);background:var(--surface-2);color:var(--blue)}.topbar #themeToggle:hover{background:color-mix(in srgb,var(--blue) 12%,var(--surface-2))}.topbar #themeIcon{stroke:currentColor!important;fill:none}.profile-panel{width:300px}.profile-summary{display:flex;align-items:center;gap:10px;margin-bottom:14px}.profile-avatar{width:42px;height:42px;font-size:16px}.profile-summary strong,.profile-summary span{display:block}.profile-summary strong{font-size:14px}.profile-summary span:not(.avatar){font-size:11px;color:var(--text-muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;max-width:215px}.profile-provider{font-size:11px;color:var(--text-muted);padding:9px 10px;border-radius:9px;background:var(--surface-2);margin-bottom:10px}.profile-action{display:flex;align-items:center;gap:9px;width:100%;border:0;border-radius:9px;padding:10px;background:transparent;color:var(--text);font-size:13px;text-align:left}.profile-action:hover{background:var(--surface-2)}.profile-action span{width:16px;text-align:center;color:var(--blue);font-weight:800}.profile-logout{color:var(--danger)}.profile-logout span{color:var(--danger)}:root[data-theme="dark"] .topbar #themeToggle{color:#8ec5ff;border-color:rgba(142,197,255,.35);background:rgba(41,151,255,.14)}
+  .attachments{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 8px}.attachment-chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:6px 8px 6px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:11px;color:var(--text)}.attachment-chip strong{color:var(--blue)}.attachment-chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}.attachment-chip button{border:0;background:transparent;color:var(--text-muted);font-size:16px;line-height:1;padding:0 1px}.attachment-chip button:hover{color:var(--danger)}.attach-btn{width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:var(--text-muted);flex:none}.attach-btn:hover{background:var(--surface);color:var(--blue)}.attach-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.message-files{margin-top:9px;padding:8px 10px;border-radius:9px;background:var(--surface);border:1px solid var(--border);font-size:11px;color:var(--text-muted);line-height:1.7}.input-row.drag-active{border-color:var(--blue);background:color-mix(in srgb,var(--blue) 8%,var(--surface-2))}
+  .backend-status{max-width:760px;margin:0 auto 14px;padding:10px 12px;border:1px solid color-mix(in srgb,var(--danger) 28%,var(--border));border-radius:10px;background:color-mix(in srgb,var(--danger) 9%,var(--surface));color:var(--danger);font-size:12px;line-height:1.45}.action-chip.active{background:color-mix(in srgb,var(--blue) 13%,var(--surface));color:var(--blue);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--blue) 35%,transparent)}.send-btn:disabled{opacity:.55;cursor:wait;transform:none!important}
+  @media(max-width:760px){.model-control{padding:5px 8px;gap:5px}.model-control>span{display:none}.model-control select{min-width:137px;max-width:158px;font-size:12px!important}.profile-panel{right:12px;top:62px;width:calc(100vw - 24px)}.history-row .delete-chat{opacity:1}.attach-btn{width:38px;height:38px}.attachments{margin-bottom:6px}.profile-top-btn{width:34px;height:34px}}
+  .avatar img,.profile-top-btn img{width:100%;height:100%;object-fit:cover;display:block}.photo-actions{display:flex;align-items:center;gap:10px;margin:0 0 14px}.photo-actions span{font-size:10px;line-height:1.35;color:var(--text-muted)}.photo-upload{border:1px solid var(--border);border-radius:999px;background:var(--surface-2);color:var(--blue);font-size:11px;font-weight:700;padding:7px 10px;white-space:nowrap}.photo-upload:hover{background:color-mix(in srgb,var(--blue) 10%,var(--surface-2))}
+  .quick-card,.history-row,.profile-trigger,.model-control,.connection-button{transition:transform .22s ease,box-shadow .22s ease,background .22s ease}.quick-card:hover,.model-control:hover{transform:translateY(-2px)}.history-row{animation:chat-item-in .28s ease both}.attachment-chip{animation:chat-item-in .22s ease both}.profile-panel.open,.settings-panel.open{transform-origin:top right}.profile-panel.open{animation:panel-pop .26s cubic-bezier(.2,.8,.2,1) both}.msg-row{animation:message-in .32s cubic-bezier(.2,.8,.2,1) both}@keyframes message-in{from{opacity:0;transform:translateY(10px) scale(.99)}to{opacity:1;transform:none}}@keyframes chat-item-in{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}@keyframes panel-pop{from{opacity:0;transform:translateY(-8px) scale(.97)}to{opacity:1;transform:none}}@media(min-width:761px) and (max-width:980px){.app{grid-template-columns:224px 1fr}.side-top{padding-left:11px;padding-right:11px}.topbar{padding-left:16px;padding-right:16px}.chat-inner{max-width:700px}.quick-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:500px){.top-actions{gap:5px}.model-control select{min-width:125px;max-width:142px}.connection-button{width:34px;height:34px;padding:0;font-size:0;justify-content:center}.connection-button::after{content:"AI";font-size:10px;font-weight:800;color:var(--mint)}.connection-button::before{display:none}.profile-trigger{padding:7px 4px}.chat-inner{padding:0 12px}.welcome{padding-left:4px;padding-right:4px}.quick-grid{grid-template-columns:1fr 1fr}.quick-card{min-height:75px}.msg-body{min-width:0;overflow-wrap:anywhere}.settings-panel{max-height:calc(100dvh - 78px);overflow-y:auto}}@media(prefers-reduced-motion:reduce){.history-row,.attachment-chip,.profile-panel.open,.msg-row{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar" id="sidebar">
+    <div class="side-top">
+      <div class="brand-mini"><img src="assets/codegurulogo.png" alt="CodeGuru logo">CodeGuru</div>
+      <button class="new-chat" id="newChatBtn" type="button"><span>＋</span> New chat</button>
+    </div>
+    <div class="history">
+      <div class="history-heading"><span>Recent chats</span><button id="clearHistoryBtn" type="button" title="Delete all chat history">Clear</button></div>
+      <div id="historyList"></div>
+    </div>
+    <div class="side-bottom">
+      <button class="profile-trigger" id="profileBtn" type="button" aria-expanded="false">
+        <span class="avatar" id="userAvatar">?</span><span class="side-user"><span class="name" id="userName">Loading&hellip;</span><span class="role">Account settings</span></span><span class="profile-chevron">⌄</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn mobile-menu" id="menuBtn" aria-label="Open chat history">☰</button>
+      <label class="model-control"><span>Model</span><select id="modelSelect" aria-label="Choose AI model"><option value="qwen3:8b">Qwen3 8B · Balanced</option></select></label>
+      <div class="top-actions">
+        <button class="connection connection-button" id="settingsBtn" aria-label="Choose AI connection" title="Choose Groq or Ollama">LOCAL · OLLAMA ▾</button>
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle dark and light mode">
+          <svg id="themeIcon" viewBox="0 0 24 24"></svg>
+        </button>
+        <button class="profile-top-btn" id="topProfileBtn" type="button" aria-label="Open profile" aria-expanded="false" title="Profile"><span id="topProfileAvatar">?</span></button>
+      </div>
+    </div>
+
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-inner" id="chatInner">
+        <div class="welcome" id="welcomeState">
+          <h1>What are we debugging today?</h1>
+          <p>Paste some code, describe a concept, or ask for practice questions.</p>
+          <div class="quick-grid">
+            <button class="quick-card" data-feature="debug" data-prompt="Can you debug this code and explain the fix?"><b>Debug code</b>Find and explain a bug</button>
+            <button class="quick-card" data-feature="explain" data-prompt="Can you explain how recursion works with a simple example?"><b>Explain a concept</b>Plain-language walkthrough</button>
+            <button class="quick-card" data-feature="quiz" data-prompt="Generate a 5-question quiz on Python loops."><b>Practice quiz</b>Test what you just learned</button>
+            <button class="quick-card" data-feature="notes" data-prompt="Summarize this into short revision notes."><b>Generate notes</b>Save a summary for later</button>
+            <button class="quick-card" data-feature="video" data-prompt="Generate a short animated video explaining binary search."><b>Video explainer</b>Animated, narrated walkthrough</button>
+            <button class="quick-card" data-feature="image" data-prompt="Generate a diagram illustrating a linked list."><b>Generate an image</b>Diagrams for your notes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="action-chips">
+          <button class="action-chip" data-feature="debug" data-prefix="Debug this: ">🐞 Debug</button>
+          <button class="action-chip" data-feature="explain" data-prefix="Explain this: ">💡 Explain</button>
+          <button class="action-chip" data-feature="quiz" data-prefix="Quiz me on: ">📝 Quiz</button>
+          <button class="action-chip" data-feature="notes" data-prefix="Make notes on: ">📓 Notes</button>
+          <button class="action-chip" data-feature="image" data-prefix="Generate an image prompt for: ">🖼️ Image</button>
+          <button class="action-chip" data-feature="video" data-prefix="Generate a video storyboard for: ">🎬 Video</button>
+        </div>
+        <div class="attachments" id="attachmentList" aria-live="polite"></div>
+        <div class="input-row">
+          <button class="attach-btn" id="attachBtn" type="button" aria-label="Attach a file" title="Attach a file">
+            <svg viewBox="0 0 24 24"><path d="m21.4 11.6-8.5 8.5a6 6 0 0 1-8.5-8.5l9-9a4 4 0 0 1 5.7 5.7l-9 9a2 2 0 0 1-2.8-2.8l8.2-8.2"></path></svg>
+          </button>
+          <textarea id="chatInput" rows="1" placeholder="Message CodeGuru..."></textarea>
+          <button class="send-btn" id="sendBtn" type="button" aria-label="Send message">
+            <svg viewBox="0 0 24 24"><path d="M22 2L11 13"></path><path d="M22 2l-7 20-4-9-9-4z"></path></svg>
+          </button>
+        </div>
+        <div class="disclaimer">CodeGuru can make mistakes — double-check important answers.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<input id="fileInput" type="file" hidden multiple accept=".txt,.md,.py,.js,.ts,.jsx,.tsx,.json,.html,.css,.java,.c,.cpp,.h,.sql,.csv,.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp">
+
+<section class="settings-panel" id="settingsPanel" aria-label="AI connection settings">
+  <h2>Choose your AI</h2><p>Use fast Groq cloud models with your own key, or run an Ollama model on your computer.</p>
+  <div class="mode-switch"><button class="active" data-mode="local" type="button">💻 Ollama<br><small>Private · local</small></button><button data-mode="api" type="button">⚡ Groq API<br><small>Fast · cloud</small></button></div>
+  <div id="localSettings"><label for="ollamaUrl">Ollama server URL</label><input id="ollamaUrl" value="http://localhost:11434" autocomplete="off"><p class="connection-note">Start Ollama, then run <code>ollama pull qwen3:8b</code>.</p></div>
+  <div id="apiSettings" hidden><label for="apiKey">Groq API key</label><input id="apiKey" type="password" placeholder="gsk_..." autocomplete="off"><p class="connection-note">Used only for this browser session and sent to your FastAPI backend. For deployment, set <code>GROQ_API_KEY</code> on the backend.</p></div>
+  <input id="provider" type="hidden" value="groq">
+  <button class="settings-save" id="saveSettings" type="button">Use this connection</button>
+</section>
+
+<section class="settings-panel account-panel" id="passwordPanel" aria-label="Add a password">
+  <h2>Add a password</h2>
+  <p>Use this to sign in with your email and password as well as Google.</p>
+  <label for="newAccountPassword">New password</label>
+  <input id="newAccountPassword" type="password" minlength="6" placeholder="At least 6 characters" autocomplete="new-password">
+  <label for="confirmAccountPassword">Confirm password</label>
+  <input id="confirmAccountPassword" type="password" minlength="6" placeholder="Enter it again" autocomplete="new-password">
+  <p class="account-error" id="passwordPanelStatus" role="status"></p>
+  <button class="settings-save" id="saveAccountPassword" type="button">Add password</button>
+</section>
+
+<section class="settings-panel profile-panel" id="profilePanel" aria-label="Profile settings">
+  <div class="profile-summary"><span class="avatar profile-avatar" id="profileAvatar">?</span><div><strong id="profileName">Student</strong><span id="profileEmail">Loading account…</span></div></div>
+  <div class="photo-actions"><button class="photo-upload" id="profilePhotoBtn" type="button">Change photo</button><span>Google photo is used automatically when available.</span></div>
+  <div class="profile-provider" id="profileProvider">Checking sign-in methods…</div>
+  <button class="profile-action" id="linkGoogleBtn" type="button"><span>G</span> Connect Google</button>
+  <button class="profile-action" id="passwordSetupBtn" type="button"><span>＋</span> Add password</button>
+  <button class="profile-action profile-logout" id="logoutBtn" type="button"><span>↪</span> Log out</button>
+</section>
+<input id="profilePhotoInput" type="file" hidden accept="image/png,image/jpeg,image/webp">
+
+<script type="module">
+  import { auth, watchAuth, logOut, linkGoogleAccount, addPasswordToAccount, readableAuthError } from './auth.js';
+  let currentUser = null;
+  function paintAvatar(targetId, label, photoUrl) {
+    const target = document.getElementById(targetId);
+    target.replaceChildren();
+    if (photoUrl) {
+      const image = document.createElement('img');
+      image.src = photoUrl;
+      image.alt = '';
+      target.appendChild(image);
+    } else {
+      target.textContent = label.charAt(0).toUpperCase();
+    }
+  }
+  function updateAvatars(user, label) {
+    const savedPhoto = localStorage.getItem('codeguru-profile-photo-' + user.uid);
+    const photoUrl = savedPhoto || user.photoURL;
+    paintAvatar('userAvatar', label, photoUrl);
+    paintAvatar('profileAvatar', label, photoUrl);
+    paintAvatar('topProfileAvatar', label, photoUrl);
+  }
+  function compressPhoto(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Unable to read that image.'));
+      reader.onload = () => {
+        const image = new Image();
+        image.onerror = () => reject(new Error('That image could not be opened.'));
+        image.onload = () => {
+          const size = 320;
+          const scale = Math.min(size / image.width, size / image.height, 1);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(image.width * scale);
+          canvas.height = Math.round(image.height * scale);
+          canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/webp', .82));
+        };
+        image.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+  watchAuth({
+    onSignedIn: (user) => {
+      currentUser = user;
+      const label = user.displayName || user.email || 'Student';
+      document.getElementById('userName').textContent = label;
+      document.getElementById('profileName').textContent = label;
+      document.getElementById('profileEmail').textContent = user.email || 'No email address available';
+      updateAvatars(user, label);
+      const googleLinked = user.providerData.some(provider => provider.providerId === 'google.com');
+      const passwordLinked = user.providerData.some(provider => provider.providerId === 'password');
+      const linkButton = document.getElementById('linkGoogleBtn');
+      const passwordButton = document.getElementById('passwordSetupBtn');
+      linkButton.hidden = googleLinked;
+      passwordButton.hidden = passwordLinked;
+      linkButton.title = googleLinked ? 'Google sign-in connected' : 'Link Google sign-in';
+      const methods = [googleLinked && 'Google', passwordLinked && 'Email + password'].filter(Boolean);
+      document.getElementById('profileProvider').textContent = methods.length ? 'Sign-in methods: ' + methods.join(' · ') : 'No sign-in method available';
+    },
+    onSignedOut: () => { window.location.href = 'login.html'; }
+  });
+  document.getElementById('logoutBtn').addEventListener('click', () => logOut());
+  document.getElementById('profileBtn').addEventListener('click', () => {
+    const panel = document.getElementById('profilePanel');
+    const open = !panel.classList.contains('open');
+    panel.classList.toggle('open', open);
+    document.getElementById('profileBtn').setAttribute('aria-expanded', String(open));
+    document.getElementById('settingsPanel').classList.remove('open');
+  });
+  document.getElementById('topProfileBtn').addEventListener('click', () => {
+    const panel = document.getElementById('profilePanel');
+    const open = !panel.classList.contains('open');
+    panel.classList.toggle('open', open);
+    document.getElementById('topProfileBtn').setAttribute('aria-expanded', String(open));
+    document.getElementById('profileBtn').setAttribute('aria-expanded', String(open));
+    document.getElementById('settingsPanel').classList.remove('open');
+  });
+  document.getElementById('profilePhotoBtn').addEventListener('click', () => document.getElementById('profilePhotoInput').click());
+  document.getElementById('profilePhotoInput').addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (!file || !currentUser) return;
+    if (file.size > 5 * 1024 * 1024) { alert('Choose an image smaller than 5 MB.'); return; }
+    try {
+      const photo = await compressPhoto(file);
+      localStorage.setItem('codeguru-profile-photo-' + currentUser.uid, photo);
+      updateAvatars(currentUser, currentUser.displayName || currentUser.email || 'Student');
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      event.target.value = '';
+    }
+  });
+  document.getElementById('linkGoogleBtn').addEventListener('click', async () => {
+    const button = document.getElementById('linkGoogleBtn');
+    button.disabled = true;
+    try {
+      await linkGoogleAccount();
+      button.hidden = true;
+      alert('Google sign-in is connected. You can now use either Google or email/password for this account.');
+    } catch (error) {
+      alert(readableAuthError(error));
+      button.disabled = false;
+    }
+  });
+  document.getElementById('passwordSetupBtn').addEventListener('click', () => {
+    document.getElementById('passwordPanel').classList.add('open');
+    document.getElementById('newAccountPassword').focus();
+  });
+  document.getElementById('saveAccountPassword').addEventListener('click', async () => {
+    const password = document.getElementById('newAccountPassword').value;
+    const confirmation = document.getElementById('confirmAccountPassword').value;
+    const status = document.getElementById('passwordPanelStatus');
+    if (password.length < 6) { status.textContent = 'Use at least 6 characters.'; return; }
+    if (password !== confirmation) { status.textContent = 'The passwords do not match.'; return; }
+    const button = document.getElementById('saveAccountPassword');
+    button.disabled = true; status.textContent = '';
+    try {
+      await addPasswordToAccount(password);
+      document.getElementById('passwordPanel').classList.remove('open');
+      document.getElementById('passwordSetupBtn').hidden = true;
+      document.getElementById('newAccountPassword').value = '';
+      document.getElementById('confirmAccountPassword').value = '';
+      alert('Password added. You can now sign in with either Google or email/password.');
+    } catch (error) {
+      status.textContent = readableAuthError(error);
+      button.disabled = false;
+    }
+  });
+</script>
+<script src="theme.js"></script>
+<script src="api-config.js"></script>
+<script src="api.js"></script>
+<script src="chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Log in — CodeGuru</title>
+<link rel="icon" href="assets/codegurulogo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+  .auth-wrap{width:100%;max-width:400px;}
+  .back-link{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:600;color:var(--text);text-decoration:none;margin-bottom:26px;padding:9px 13px 9px 10px;border:1px solid var(--border);border-radius:999px;background:color-mix(in srgb,var(--surface) 86%,transparent);box-shadow:0 5px 16px rgba(0,0,0,.05);transition:transform .2s ease,background .2s ease,box-shadow .2s ease;}
+  .back-arrow{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue);font-size:15px;line-height:1;transition:transform .2s ease;}.back-link:hover{background:var(--surface-2);box-shadow:0 9px 22px rgba(0,0,0,.09);transform:translateX(-3px);}.back-link:hover .back-arrow{transform:translateX(-2px)}.back-link:active{transform:translateX(-1px) scale(.98);}
+  .auth-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:34px;}
+  .brand-mini{display:flex;align-items:center;gap:9px;font-family:var(--font-head);font-weight:700;font-size:18px;margin-bottom:6px;}
+  .brand-mini img{height:24px;width:auto;display:block;border-radius:6px;}
+  .auth-card h1{font-size:22px;margin:14px 0 4px;}
+  .auth-card > p.sub{color:var(--text-muted);font-size:14px;margin:0 0 24px;}
+  .tabs{display:flex;gap:4px;background:var(--surface-2);border-radius:999px;padding:4px;margin-bottom:26px;}
+  .tab{flex:1;text-align:center;padding:9px;border-radius:999px;border:none;background:transparent;color:var(--text-muted);font-weight:600;font-size:13.5px;}
+  .tab.active{background:var(--ink);color:var(--text);}
+  .divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--text-muted);font-size:12px;}
+  .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--border);}
+  .btn-google{background:var(--surface-2);color:var(--text);border:1px solid var(--border);}
+  .foot-link{text-align:center;font-size:13px;color:var(--text-muted);margin-top:20px;}
+  .foot-link button{background:none;border:none;color:var(--blue);font-weight:600;padding:0;font-size:13px;}
+  .forgot{display:block;text-align:right;font-size:12.5px;color:var(--text-muted);margin:-8px 0 16px;background:none;border:none;padding:0;text-decoration:underline;}
+  .status{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:16px;display:none;}
+  .status.show{display:block;}
+  .status.error{background:color-mix(in srgb, var(--danger) 16%, transparent);color:var(--danger);}
+  .status.ok{background:color-mix(in srgb, var(--mint) 16%, transparent);color:var(--mint);}
+  .hidden{display:none;}
+  .password-wrap{position:relative;}.password-wrap input{padding-right:58px;}.password-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);height:32px;border:0;border-radius:8px;background:transparent;color:var(--blue);font-size:11px;font-weight:700;padding:0 9px;transition:background .2s,color .2s;}.password-toggle:hover{background:color-mix(in srgb,var(--blue) 10%,transparent);color:var(--blue);}
+  body{background:radial-gradient(circle at 50% -20%,color-mix(in srgb,var(--blue) 15%,transparent),transparent 45%),var(--ink);}
+  .auth-wrap{max-width:390px;}
+  .back-link{margin-bottom:18px;}
+  .auth-card{background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(20px);border-radius:26px;padding:32px;box-shadow:0 24px 60px rgba(0,0,0,.08);}
+  .brand-mini{font-size:16px;justify-content:center;margin-bottom:22px;}.brand-mini img{height:28px;}
+  .auth-card h1{text-align:center;font-size:28px;margin:0 0 7px;}.auth-card > p.sub{text-align:center;font-size:13px;margin-bottom:24px;}
+  .tabs{border-radius:12px;padding:3px;}.tab{border-radius:9px;font-size:13px;}.tab.active{background:var(--surface-2);}
+  .btn-google{background:var(--surface-2);border-radius:11px;}.divider{margin:21px 0;}.foot-link{margin-top:22px;}
+  .back-link{animation:cg-rise .45s ease both}.auth-card{animation:cg-rise .65s .08s ease both}.auth-card .brand-mini{animation:cg-pulse 3.6s ease-in-out 1s infinite}.field input{transition:border-color .2s,box-shadow .2s,transform .2s}.field input:focus{border-color:var(--blue);box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 12%,transparent);transform:translateY(-1px)}.tab,.btn{transition:transform .2s,background .2s,box-shadow .2s}
+  @media(max-width:480px){body{display:block;padding:16px;min-height:100svh}.auth-wrap{max-width:none;margin:0 auto;padding:6px 0 22px}.back-link{margin-bottom:20px;padding:8px 11px;font-size:12px}.auth-card{padding:27px 20px;border-radius:22px}.brand-mini{margin-bottom:18px}.auth-card h1{font-size:26px}.auth-card > p.sub{font-size:13px}.tabs{margin-bottom:21px}.btn-google{min-height:48px}.divider{margin:18px 0}.forgot{margin-top:-6px;margin-bottom:15px}}
+</style>
+</head>
+<body>
+<div class="auth-wrap">
+  <a class="back-link" href="index.html"><span class="back-arrow" aria-hidden="true">←</span>Back to CodeGuru</a>
+  <div class="auth-card">
+    <div class="brand-mini"><img src="assets/codegurulogo.png" alt="CodeGuru logo">CodeGuru</div>
+    <h1 id="formTitle">Welcome back</h1>
+    <p class="sub" id="formSub">Log in to pick up where you left off.</p>
+
+    <div class="tabs">
+      <button class="tab active" id="tabLogin" type="button">Log in</button>
+      <button class="tab" id="tabSignup" type="button">Sign up</button>
+    </div>
+
+    <div class="status" id="statusBox"></div>
+
+    <button class="btn btn-google btn-block" id="googleBtn" type="button">
+      Continue with Google
+    </button>
+    <div class="divider">or with email</div>
+
+    <form id="authForm">
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" required autocomplete="email">
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <div class="password-wrap">
+          <input type="password" id="password" required autocomplete="current-password" minlength="6">
+          <button class="password-toggle" id="passwordToggle" type="button" aria-label="Show password" aria-pressed="false">Show</button>
+        </div>
+      </div>
+      <button type="button" class="forgot" id="forgotBtn">Forgot password?</button>
+      <button type="submit" class="btn btn-primary btn-block" id="submitBtn">Log in</button>
+    </form>
+
+    <div class="foot-link" id="switchLine">
+      New here? <button type="button" id="switchToSignup">Create an account</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+  import { signUp, logIn, logInWithGoogle, resetPassword, watchAuth, readableAuthError } from './auth.js';
+
+  let mode = 'login'; // 'login' | 'signup'
+  const els = {
+    title: document.getElementById('formTitle'),
+    sub: document.getElementById('formSub'),
+    tabLogin: document.getElementById('tabLogin'),
+    tabSignup: document.getElementById('tabSignup'),
+    form: document.getElementById('authForm'),
+    email: document.getElementById('email'),
+    password: document.getElementById('password'),
+    submitBtn: document.getElementById('submitBtn'),
+    googleBtn: document.getElementById('googleBtn'),
+    forgotBtn: document.getElementById('forgotBtn'),
+    switchLine: document.getElementById('switchLine'),
+    switchToSignup: document.getElementById('switchToSignup'),
+    status: document.getElementById('statusBox'),
+  };
+
+  function setMode(next) {
+    mode = next;
+    const isLogin = mode === 'login';
+    els.tabLogin.classList.toggle('active', isLogin);
+    els.tabSignup.classList.toggle('active', !isLogin);
+    els.title.textContent = isLogin ? 'Welcome back' : 'Create your account';
+    els.sub.textContent = isLogin ? 'Log in to pick up where you left off.' : 'A few seconds and you\u2019re in the chat.';
+    els.submitBtn.textContent = isLogin ? 'Log in' : 'Sign up';
+    els.switchLine.innerHTML = isLogin
+      ? 'New here? <button type="button" id="switchToSignup">Create an account</button>'
+      : 'Already have an account? <button type="button" id="switchToSignup">Log in</button>';
+    document.getElementById('switchToSignup').addEventListener('click', () => setMode(isLogin ? 'signup' : 'login'));
+    hideStatus();
+  }
+
+  function showStatus(message, type) {
+    els.status.textContent = message;
+    els.status.className = `status show ${type}`;
+  }
+  function hideStatus() {
+    els.status.className = 'status';
+  }
+
+  document.getElementById('passwordToggle').addEventListener('click', () => {
+    const show = els.password.type === 'password';
+    els.password.type = show ? 'text' : 'password';
+    document.getElementById('passwordToggle').textContent = show ? 'Hide' : 'Show';
+    document.getElementById('passwordToggle').setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    document.getElementById('passwordToggle').setAttribute('aria-pressed', String(show));
+  });
+
+  els.tabLogin.addEventListener('click', () => setMode('login'));
+  els.tabSignup.addEventListener('click', () => setMode('signup'));
+  els.switchToSignup.addEventListener('click', () => setMode(mode === 'login' ? 'signup' : 'login'));
+
+  els.form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideStatus();
+    els.submitBtn.disabled = true;
+    try {
+      if (mode === 'login') {
+        await logIn(els.email.value, els.password.value);
+      } else {
+        await signUp(els.email.value, els.password.value);
+      }
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      showStatus(readableAuthError(err), 'error');
+      els.submitBtn.disabled = false;
+    }
+  });
+
+  els.googleBtn.addEventListener('click', async () => {
+    hideStatus();
+    try {
+      await logInWithGoogle();
+      window.location.href = 'dashboard.html';
+    } catch (err) {
+      showStatus(readableAuthError(err), 'error');
+    }
+  });
+
+  els.forgotBtn.addEventListener('click', async () => {
+    hideStatus();
+    if (!els.email.value) {
+      showStatus('Enter your email above first, then tap "Forgot password?"', 'error');
+      return;
+    }
+    try {
+      await resetPassword(els.email.value);
+      showStatus('Password reset email sent — check your inbox.', 'ok');
+    } catch (err) {
+      showStatus(readableAuthError(err), 'error');
+    }
+  });
+
+  // Already signed in? skip straight to the dashboard.
+  watchAuth({ onSignedIn: () => { window.location.href = 'dashboard.html'; } });
+</script>
+</body>
+</html>
