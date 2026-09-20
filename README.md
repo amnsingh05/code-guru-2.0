@@ -346,6 +346,36 @@ http://localhost:11434
 
 ---
 
+## Use Local Ollama from the Deployed Vercel Site
+
+CodeGuru supports a hybrid setup: Vercel hosts the website, while Ollama and
+the FastAPI backend run on the user's own computer. This is useful when you
+want local model privacy but still want to open CodeGuru through its Vercel URL.
+
+On the computer that has Ollama installed, start Ollama:
+
+```powershell
+ollama serve
+```
+
+In a second PowerShell window, allow your Vercel domain and start the local
+CodeGuru backend:
+
+```powershell
+$env:CODEGURU_ALLOWED_ORIGINS="https://code-guru-2-0a.vercel.app"
+python codeguru_backend.py
+```
+
+Then open the deployed dashboard, choose **Ollama**, set **Local CodeGuru
+Backend URL** to `http://localhost:8000`, and click **Use this connection**.
+The browser sends requests to the local FastAPI backend, and that backend
+communicates with Ollama at `http://localhost:11434`.
+
+This works only on the computer running both Ollama and the FastAPI backend.
+Other visitors must run their own local setup or use Groq API mode.
+
+---
+
 # ⚡ Groq API Setup
 
 CodeGuru can also use Groq cloud inference.
@@ -648,9 +678,11 @@ for the backend.
 
 ## Important Ollama Deployment Note
 
-A static frontend deployed on Vercel cannot directly access Ollama running on a user's private computer.
-
-For a fully cloud-hosted setup, the backend must be able to reach the configured AI provider.
+Vercel does not run a persistent local Ollama model. When Local/Ollama mode is
+selected, the deployed website connects to `http://localhost:8000` on the
+current user's computer, where the local FastAPI backend communicates with
+Ollama. For a fully cloud-hosted setup, use Groq or host Ollama and FastAPI on
+a separate always-running server.
 
 A typical deployment architecture is:
 

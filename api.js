@@ -19,6 +19,8 @@
   }
 
   async function backendUrl() {
+    const localOverride = String(window.CodeGuruLocalBackendUrl || '').replace(/\/$/, '');
+    if (localOverride) return localOverride;
     const url = String(await (window.CodeGuruRuntime || Promise.resolve(''))).replace(/\/$/, '');
     if (!url) {
       throw new CodeGuruApiError('CodeGuru backend is not configured for this deployment. Set CODEGURU_API_URL in Vercel.', 0);

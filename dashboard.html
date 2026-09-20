@@ -223,7 +223,7 @@
 <section class="settings-panel" id="settingsPanel" aria-label="AI connection settings">
   <h2>Choose your AI</h2><p>Use fast Groq cloud models with your own key, or run an Ollama model on your computer.</p>
   <div class="mode-switch"><button class="active" data-mode="local" type="button">💻 Ollama<br><small>Private · local</small></button><button data-mode="api" type="button">⚡ Groq API<br><small>Fast · cloud</small></button></div>
-  <div id="localSettings"><label for="ollamaUrl">Ollama server URL</label><input id="ollamaUrl" value="http://localhost:11434" autocomplete="off"><p class="connection-note">Start Ollama, then run <code>ollama pull qwen3:8b</code>.</p></div>
+  <div id="localSettings"><label for="localBackendUrl">Local CodeGuru backend URL</label><input id="localBackendUrl" value="http://localhost:8000" autocomplete="off"><label for="ollamaUrl">Ollama server URL</label><input id="ollamaUrl" value="http://localhost:11434" autocomplete="off"><p class="connection-note">Start Ollama and the local FastAPI backend. The deployed website connects to this local backend; it then connects to Ollama.</p></div>
   <div id="apiSettings" hidden><label for="apiKey">Groq API key</label><input id="apiKey" type="password" placeholder="gsk_..." autocomplete="off"><p class="connection-note">Used only for this browser session and sent to your FastAPI backend. For deployment, set <code>GROQ_API_KEY</code> on the backend.</p></div>
   <input id="provider" type="hidden" value="groq">
   <button class="settings-save" id="saveSettings" type="button">Use this connection</button>

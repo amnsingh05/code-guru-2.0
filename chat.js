@@ -14,7 +14,7 @@
   const attachmentList = document.getElementById('attachmentList');
   const settingsPanel = document.getElementById('settingsPanel');
   const settingsBtn = document.getElementById('settingsBtn');
-  const connection = JSON.parse(localStorage.getItem('codeguru-connection') || '{"mode":"local","ollamaUrl":"http://localhost:11434","provider":"groq","apiKey":""}');
+  const connection = JSON.parse(localStorage.getItem('codeguru-connection') || '{"mode":"local","localBackendUrl":"http://localhost:8000","ollamaUrl":"http://localhost:11434","provider":"groq","apiKey":""}');
 
   let chats = {};
   let activeChatId = null;
@@ -79,12 +79,16 @@
   }
 
   function updateConnectionUI() {
+    document.getElementById('localBackendUrl').value = connection.localBackendUrl || 'http://localhost:8000';
     document.getElementById('ollamaUrl').value = connection.ollamaUrl || 'http://localhost:11434';
     document.getElementById('apiKey').value = connection.apiKey || '';
     document.getElementById('localSettings').hidden = connection.mode !== 'local';
     document.getElementById('apiSettings').hidden = connection.mode !== 'api';
     document.querySelectorAll('[data-mode]').forEach(button => button.classList.toggle('active', button.dataset.mode === connection.mode));
     settingsBtn.textContent = connection.mode === 'local' ? 'LOCAL · OLLAMA ▾' : 'API MODE ▾';
+    window.CodeGuruLocalBackendUrl = connection.mode === 'local'
+      ? (connection.localBackendUrl || 'http://localhost:8000').replace(/\/$/, '')
+      : '';
   }
 
   async function loadModels() {
@@ -340,6 +344,7 @@
     loadModels().catch(error => showStatus(error.message));
   }));
   document.getElementById('saveSettings').addEventListener('click', () => {
+    connection.localBackendUrl = document.getElementById('localBackendUrl').value.trim().replace(/\/$/, '') || 'http://localhost:8000';
     connection.ollamaUrl = document.getElementById('ollamaUrl').value.replace(/\/$/, '');
     connection.apiKey = document.getElementById('apiKey').value.trim();
     // Keep the key only in memory for this open dashboard. A deployed app
