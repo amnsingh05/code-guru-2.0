@@ -96,6 +96,15 @@
     const data = await api.getModels(provider);
     if (provider === 'groq') backendGroqConfigured = Boolean(data.configured);
     const models = data.models || [];
+    if (!models.length && provider === 'ollama') {
+      // The backend deliberately returns no tunnel details. Switch to the
+      // existing API-key provider list so the user can continue chatting.
+      connection.mode = 'api';
+      localStorage.setItem('codeguru-connection', JSON.stringify({ ...connection, apiKey: '' }));
+      updateConnectionUI();
+      showStatus('Local Ollama is offline. Switched to another configured model.');
+      return loadModels();
+    }
     if (!models.length) throw new Error('No ' + provider + ' chat models are available from the backend.');
     const previous = modelSelect.value;
     modelSelect.replaceChildren();
@@ -301,20 +310,40 @@
     renderMessages();
     const typing = showTyping();
     try {
-      const result = await api.sendMessage({
-        sessionId: activeChatId,
-        message,
-        model: selectedModel(),
-        feature,
-        provider: selectedProvider(),
-        apiKey: connection.mode === 'api' ? connection.apiKey : '',
-      });
-      activeMessages.push({ role: 'assistant', content: result.response || 'CodeGuru returned an empty response.', sources: result.rag_used ? result.sources : [] });
+      let result;
+      if (selectedProvider() === 'ollama') {
+        const assistantMessage = { role: 'assistant', content: '' };
+        activeMessages.push(assistantMessage);
+        typing.remove();
+        renderMessages();
+        result = await api.streamOllamaMessage({
+          sessionId: activeChatId,
+          message,
+          model: selectedModel(),
+          feature,
+        }, (_token, responseText) => {
+          assistantMessage.content = responseText;
+          renderMessages();
+        });
+      } else {
+        result = await api.sendMessage({
+          sessionId: activeChatId,
+          message,
+          model: selectedModel(),
+          feature,
+          provider: selectedProvider(),
+          apiKey: connection.apiKey,
+        });
+      }
+      if (selectedProvider() !== 'ollama') activeMessages.push({ role: 'assistant', content: result.response || 'CodeGuru returned an empty response.', sources: result.rag_used ? result.sources : [] });
       typing.remove();
       renderMessages();
       await refreshHistory();
     } catch (error) {
       typing.remove();
+      if (selectedProvider() === 'ollama' && activeMessages.at(-1)?.role === 'assistant' && !activeMessages.at(-1).content) {
+        activeMessages.pop();
+      }
       activeMessages.push({ role: 'assistant', content: error.message });
       renderMessages();
     } finally {

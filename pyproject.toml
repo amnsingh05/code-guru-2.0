@@ -6,6 +6,7 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "python-multipart",
+    "httpx",
     "langchain",
     "langchain-core",
     "langchain-text-splitters",

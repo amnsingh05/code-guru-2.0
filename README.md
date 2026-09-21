@@ -348,31 +348,65 @@ http://localhost:11434
 
 ## Use Local Ollama from the Deployed Vercel Site
 
-CodeGuru supports a hybrid setup: Vercel hosts the website, while Ollama and
-the FastAPI backend run on the user's own computer. This is useful when you
-want local model privacy but still want to open CodeGuru through its Vercel URL.
+For the deployed site, use the tunnel-based setup below. It lets the Vercel
+FastAPI function reach the Ollama instance without exposing a local backend URL
+to visitors.
 
-On the computer that has Ollama installed, start Ollama:
+---
+
+## Running Ollama locally with the live site
+
+The Vercel FastAPI function can securely proxy requests to Ollama on your
+computer through a public tunnel. The browser never receives the tunnel URL or
+the optional tunnel token.
+
+1. Start Ollama on the machine hosting the models:
+
+   ```powershell
+   ollama serve
+   ```
+
+2. In a second terminal, publish the local Ollama port with Cloudflare Tunnel:
+
+   ```powershell
+   cloudflared tunnel --url http://localhost:11434
+   ```
+
+   Or use ngrok:
+
+   ```powershell
+   ngrok http 11434
+   ```
+
+3. In **Vercel Project Settings → Environment Variables**, set
+   `OLLAMA_BASE_URL` to the tunnel's public HTTPS URL. Optionally set
+   `OLLAMA_API_TOKEN` if your tunnel or proxy verifies a bearer token, and set
+   `ALLOWED_ORIGINS` to your exact Vercel site origin (for example,
+   `https://my-site.vercel.app`). `OLLAMA_TIMEOUT` defaults to 120 seconds.
+
+4. Redeploy the Vercel project. The dashboard loads available models from
+   `/api/ollama/models`, and Ollama replies stream through the FastAPI function.
+
+Free Cloudflare quick-tunnel and ngrok URLs normally change after a restart;
+update `OLLAMA_BASE_URL` and redeploy whenever that happens. For a durable and
+safer setup, use a named Cloudflare Tunnel with Cloudflare Access, or place a
+token-checking reverse proxy in front of Ollama and configure
+`OLLAMA_API_TOKEN`. Do not expose an unauthenticated Ollama port publicly.
+
+### Local tunnel checks
+
+With FastAPI running locally, these routes do not reveal the configured tunnel
+URL or token:
 
 ```powershell
-ollama serve
+curl http://localhost:8000/api/ollama/health
+curl http://localhost:8000/api/ollama/models
+curl -N -X POST http://localhost:8000/api/chat -H "Content-Type: application/json" -d '{"session_id":"YOUR-SESSION-UUID","message":"Say hello","model":"qwen3:8b","provider":"ollama"}'
 ```
 
-In a second PowerShell window, allow your Vercel domain and start the local
-CodeGuru backend:
-
-```powershell
-$env:CODEGURU_ALLOWED_ORIGINS="https://code-guru-2-0a.vercel.app"
-python codeguru_backend.py
-```
-
-Then open the deployed dashboard, choose **Ollama**, set **Local CodeGuru
-Backend URL** to `http://localhost:8000`, and click **Use this connection**.
-The browser sends requests to the local FastAPI backend, and that backend
-communicates with Ollama at `http://localhost:11434`.
-
-This works only on the computer running both Ollama and the FastAPI backend.
-Other visitors must run their own local setup or use Groq API mode.
+Create `YOUR-SESSION-UUID` first with `POST /api/chat/new`. An offline tunnel
+returns a JSON `503` with a friendly “Local Ollama is offline” message before
+streaming starts; the UI then asks the user to choose another configured model.
 
 ---
 
@@ -671,18 +705,21 @@ Configure environment variables such as:
 
 ```text
 GROQ_API_KEY
-CODEGURU_ALLOWED_ORIGINS
+ALLOWED_ORIGINS
+OLLAMA_BASE_URL
+OLLAMA_API_TOKEN
+OLLAMA_TIMEOUT
 ```
 
 for the backend.
 
 ## Important Ollama Deployment Note
 
-Vercel does not run a persistent local Ollama model. When Local/Ollama mode is
-selected, the deployed website connects to `http://localhost:8000` on the
-current user's computer, where the local FastAPI backend communicates with
-Ollama. For a fully cloud-hosted setup, use Groq or host Ollama and FastAPI on
-a separate always-running server.
+Vercel does not run a persistent local Ollama model. Configure
+`OLLAMA_BASE_URL` with the HTTPS URL of a tunnel to the machine running Ollama,
+as described in **Running Ollama locally with the live site** above. For a
+fully cloud-hosted setup, use Groq or host Ollama on a separate always-running
+server.
 
 A typical deployment architecture is:
 

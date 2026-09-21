@@ -142,16 +142,15 @@ import os
 import re
 import sqlite3
 import tempfile
-import urllib.error
-import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncIterator, Dict, List, Optional
 
+import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
@@ -197,10 +196,10 @@ HOST = os.getenv("CODEGURU_HOST", "0.0.0.0")
 PORT = int(os.getenv("CODEGURU_PORT", "8000"))
 PROJECT_DIR = Path(__file__).resolve().parent
 
-OLLAMA_BASE_URL = os.getenv(
-    "OLLAMA_BASE_URL",
-    "http://localhost:11434",
-)
+# This remains server-only: do not return it from any API response.
+OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+OLLAMA_API_TOKEN = os.getenv("OLLAMA_API_TOKEN", "").strip()
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 # Keep runtime files outside the frontend project. VS Code Live Server watches
 # the project directory and would otherwise reload the dashboard whenever a
@@ -320,15 +319,18 @@ app.mount(
     name="assets",
 )
 
-# Local development CORS. Add a comma-separated CODEGURU_ALLOWED_ORIGINS
-# environment variable if the frontend runs on another local origin.
+# In production set ALLOWED_ORIGINS to the exact Vercel site origin(s). The
+# legacy variable is retained for existing deployments during migration.
 ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
-        "CODEGURU_ALLOWED_ORIGINS",
-        "http://localhost:5500,http://127.0.0.1:5500,"
-        "http://localhost:5173,http://127.0.0.1:5173,"
-        "http://localhost:3000,http://127.0.0.1:3000",
+        "ALLOWED_ORIGINS",
+        os.getenv(
+            "CODEGURU_ALLOWED_ORIGINS",
+            "http://localhost:5500,http://127.0.0.1:5500,"
+            "http://localhost:5173,http://127.0.0.1:5173,"
+            "http://localhost:3000,http://127.0.0.1:3000",
+        ),
     ).split(",")
     if origin.strip()
 ]
@@ -423,15 +425,15 @@ def now_iso() -> str:
 # ============================================================
 
 class NewChatRequest(BaseModel):
-    model: str = "qwen3:8b"
-    provider: str = "ollama"
+    model: str = Field(default="qwen3:8b", min_length=1, max_length=128)
+    provider: str = Field(default="ollama", max_length=32)
 
 
 class ChatRequest(BaseModel):
-    session_id: str
-    message: str = Field(min_length=1)
-    model: Optional[str] = None
-    provider: Optional[str] = None
+    session_id: str = Field(min_length=36, max_length=36)
+    message: str = Field(min_length=1, max_length=20_000)
+    model: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    provider: Optional[str] = Field(default=None, max_length=32)
     api_key: Optional[str] = Field(default=None, max_length=512)
     feature: str = "chat"
 
@@ -456,10 +458,15 @@ def validate_provider(provider: str) -> str:
 
 def validate_model(model_name: str, provider: str) -> str:
     provider = validate_provider(provider)
+    model_name = model_name.strip()
+    # Permit names returned by /api/tags but reject values that could be used
+    # as malformed upstream payloads or log injection.
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}", model_name):
+        raise HTTPException(status_code=400, detail="Invalid model name.")
+    if provider == "ollama":
+        return model_name
     available_models = (
-        LOCAL_MODELS
-        if provider == "ollama"
-        else GROQ_MODELS
+        GROQ_MODELS
     )
 
     if model_name not in available_models:
@@ -471,6 +478,49 @@ def validate_model(model_name: str, provider: str) -> str:
             },
         )
     return model_name
+
+
+def ollama_headers() -> Dict[str, str]:
+    """Return optional proxy authentication without exposing it to clients."""
+    return {"Authorization": f"Bearer {OLLAMA_API_TOKEN}"} if OLLAMA_API_TOKEN else {}
+
+
+def local_ollama_error() -> HTTPException:
+    return HTTPException(status_code=503, detail="Local Ollama is offline. Choose another configured model and try again.")
+
+
+async def ollama_model_names() -> List[str]:
+    """Fetch model names from Ollama's tags API using the tunnel credentials."""
+    try:
+        async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
+            response = await client.get(f"{OLLAMA_BASE_URL}/api/tags", headers=ollama_headers())
+            response.raise_for_status()
+            payload = response.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        raise local_ollama_error() from exc
+    return [item["name"] for item in payload.get("models", []) if isinstance(item.get("name"), str)]
+
+
+async def stream_ollama_chat(model: str, prompt: str) -> AsyncIterator[str]:
+    """Proxy Ollama NDJSON incrementally, yielding only generated text tokens."""
+    payload = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": True}
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(OLLAMA_TIMEOUT)) as client:
+            async with client.stream("POST", f"{OLLAMA_BASE_URL}/api/chat", headers=ollama_headers(), json=payload) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line:
+                        continue
+                    event = json.loads(line)
+                    if event.get("error"):
+                        raise RuntimeError(str(event["error"]))
+                    token = event.get("message", {}).get("content", "")
+                    if isinstance(token, str) and token:
+                        yield token
+    except (httpx.HTTPError, ValueError, RuntimeError) as exc:
+        # A response may already have started, so this cannot be converted to a
+        # JSON 503 at that point. Connection failures are preflighted below.
+        raise local_ollama_error() from exc
 
 
 def get_chat_model(model_name: str) -> ChatOllama:
@@ -1249,16 +1299,30 @@ def health() -> Dict[str, Any]:
     return {
         "status": "ok",
         "service": APP_NAME,
-        "ollama_url": OLLAMA_BASE_URL,
         "embedding_model": EMBEDDING_MODEL,
-        "ollama_models": list(LOCAL_MODELS.keys()),
         "groq_models": list(GROQ_MODELS.keys()),
         "groq_configured": bool(GROQ_API_KEY),
     }
 
 
+@app.get("/api/ollama/health")
+async def ollama_health() -> Dict[str, Any]:
+    """Report tunnel reachability without revealing its URL or credentials."""
+    try:
+        model_names = await ollama_model_names()
+    except HTTPException:
+        return {"reachable": False, "status": "offline"}
+    return {"reachable": True, "status": "ok", "model_count": len(model_names)}
+
+
+@app.get("/api/ollama/models")
+async def ollama_models() -> Dict[str, Any]:
+    """Return models currently exposed by the private Ollama tunnel."""
+    return {"models": await ollama_model_names()}
+
+
 @app.get("/api/models")
-def models(provider: str = "ollama") -> Dict[str, Any]:
+async def models(provider: str = "ollama") -> Dict[str, Any]:
     provider = validate_provider(provider)
 
     if provider == "groq":
@@ -1271,33 +1335,22 @@ def models(provider: str = "ollama") -> Dict[str, Any]:
             ],
         }
 
-    # Configured choices remain visible even before download. The installed
-    # flag lets the frontend explain exactly which model is missing.
-    installed: List[str] = []
-
     try:
-        with urllib.request.urlopen(
-            f"{OLLAMA_BASE_URL}/api/tags",
-            timeout=3,
-        ) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-            installed = [
-                item.get("name", "")
-                for item in payload.get("models", [])
-            ]
-    except (urllib.error.URLError, TimeoutError, ValueError):
-        # Do not fail model-selector rendering merely because Ollama is offline.
-        pass
+        installed = await ollama_model_names()
+    except HTTPException:
+        # Keep existing local choices visible when the tunnel is unavailable.
+        installed = []
 
     return {
         "provider": "ollama",
         "models": [
             {
                 "id": model_id,
-                "installed": model_id in installed,
-                **details,
+                "label": model_id,
+                "description": "Available from the configured Ollama instance.",
+                "installed": True,
             }
-            for model_id, details in LOCAL_MODELS.items()
+            for model_id in installed
         ],
         "embedding_model": EMBEDDING_MODEL,
     }
@@ -1650,7 +1703,7 @@ def list_files(session_id: str) -> Dict[str, Any]:
 # ============================================================
 
 @app.post("/api/chat")
-def chat(request: ChatRequest) -> Dict[str, Any]:
+async def chat(request: ChatRequest) -> Any:
     """
     Main endpoint used by the CodeGuru message box.
 
@@ -1723,12 +1776,37 @@ def chat(request: ChatRequest) -> Dict[str, Any]:
                 request.api_key,
             )
         else:
-            model = get_chat_model(model_name)
-            result = model.invoke(prompt)
-            response_text = (
-                result.content
-                if hasattr(result, "content")
-                else str(result)
+            # Fail before starting the HTTP stream so a disconnected tunnel is
+            # returned as a clear JSON 503 rather than a partial response.
+            available_models = await ollama_model_names()
+            if model_name not in available_models:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Ollama model '{model_name}' is not available.",
+                )
+
+            async def token_stream() -> AsyncIterator[str]:
+                tokens: List[str] = []
+                try:
+                    async for token in stream_ollama_chat(model_name, prompt):
+                        tokens.append(token)
+                        yield token
+                finally:
+                    # Persist only completed text; this preserves the existing
+                    # history behavior while allowing the browser to render it.
+                    response_text = "".join(tokens)
+                    if response_text:
+                        save_message(request.session_id, "user", request.message, feature)
+                        save_message(request.session_id, "assistant", response_text, feature)
+                        if session["title"] == "New chat":
+                            update_session(request.session_id, title=make_title(request.message))
+                        else:
+                            update_session(request.session_id)
+
+            return StreamingResponse(
+                token_stream(),
+                media_type="text/plain; charset=utf-8",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
 
     except Exception as exc:
@@ -1736,13 +1814,8 @@ def chat(request: ChatRequest) -> Dict[str, Any]:
             raise
         error_text = str(exc)
 
-        if "11434" in error_text.lower():
-            message = (
-                "Could not reach Ollama at "
-                f"{OLLAMA_BASE_URL}. "
-                "Start Ollama and make sure the selected model "
-                f"exists. Try: ollama pull {model_name}"
-            )
+        if isinstance(exc, (httpx.HTTPError, TimeoutError)):
+            message = "Local Ollama is offline. Choose another configured model and try again."
         elif "not found" in error_text.lower():
             message = (
                 f"Ollama model '{model_name}' was not found. "
@@ -1756,7 +1829,7 @@ def chat(request: ChatRequest) -> Dict[str, Any]:
             detail=message,
         )
 
-    # Save the user/assistant pair ONLY in this session.
+    # Groq remains non-streaming and retains the existing API-key integration.
     save_message(
         request.session_id,
         "user",
