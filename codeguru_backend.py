@@ -142,6 +142,7 @@ import os
 import re
 import sqlite3
 import tempfile
+import urllib.parse
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -1632,7 +1633,11 @@ async def upload_file(
         except Exception as exc:
             # Indexing needs the Ollama embedding model. Keep the server-only
             # Ollama URL out of the message that is returned to the browser.
-            reason = str(exc).replace(OLLAMA_BASE_URL, "[Ollama URL]")
+            reason = str(exc)
+            ollama_host = urllib.parse.urlparse(OLLAMA_BASE_URL).netloc
+            for private_value in (OLLAMA_BASE_URL, ollama_host, OLLAMA_API_TOKEN):
+                if private_value:
+                    reason = reason.replace(private_value, "[Ollama URL]")
             raise HTTPException(
                 status_code=503,
                 detail=(
