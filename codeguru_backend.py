@@ -481,8 +481,11 @@ def validate_model(model_name: str, provider: str) -> str:
 
 
 def ollama_headers() -> Dict[str, str]:
-    """Return optional proxy authentication without exposing it to clients."""
-    return {"Authorization": f"Bearer {OLLAMA_API_TOKEN}"} if OLLAMA_API_TOKEN else {}
+    """Return server-only tunnel headers without exposing them to clients."""
+    headers = {"ngrok-skip-browser-warning": "1"}
+    if OLLAMA_API_TOKEN:
+        headers["Authorization"] = f"Bearer {OLLAMA_API_TOKEN}"
+    return headers
 
 
 def local_ollama_error() -> HTTPException:
