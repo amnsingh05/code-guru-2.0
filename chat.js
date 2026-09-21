@@ -277,9 +277,14 @@
     if (!activeChatId) return;
     isUploading = true;
     showStatus('Uploading and indexing file…');
+    // Vercel rejects request bodies above ~4.5 MB before they reach FastAPI, so
+    // the hosted site gets a lower limit. A local backend keeps the 25 MB limit.
+    const isLocalHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+    const usesHostedBackend = !window.CodeGuruLocalBackendUrl && !isLocalHost;
+    const maxUploadMb = usesHostedBackend ? 4 : 25;
     try {
       for (const file of Array.from(files)) {
-        if (file.size > 25 * 1024 * 1024) throw new Error(file.name + ' is over the 25 MB upload limit.');
+        if (file.size > maxUploadMb * 1024 * 1024) throw new Error(file.name + ' is over the ' + maxUploadMb + ' MB upload limit' + (usesHostedBackend ? ' for the hosted site.' : '.'));
         await api.upload(activeChatId, file);
       }
       uploadedFiles = (await api.getFiles(activeChatId)).files || [];

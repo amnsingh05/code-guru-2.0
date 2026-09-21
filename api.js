@@ -35,7 +35,12 @@
       const response = await fetch((await backendUrl()) + path, { ...options, signal: controller.signal });
       const contentType = response.headers.get('content-type') || '';
       const payload = contentType.includes('application/json') ? await response.json() : null;
-      if (!response.ok) throw new CodeGuruApiError(messageFromPayload(payload, 'CodeGuru backend request failed.'), response.status);
+      if (!response.ok) {
+        const fallback = response.status === 413
+          ? 'That file is too large for the server. On the hosted site, files must be about 4 MB or smaller.'
+          : 'CodeGuru backend request failed.';
+        throw new CodeGuruApiError(messageFromPayload(payload, fallback), response.status);
+      }
       return payload;
     } catch (error) {
       if (error.name === 'AbortError') throw new CodeGuruApiError('CodeGuru took too long to respond. Please try again.', 408);

@@ -598,6 +598,12 @@ def get_embedding_model() -> OllamaEmbeddings:
         _embedding_model = OllamaEmbeddings(
             model=EMBEDDING_MODEL,
             base_url=OLLAMA_BASE_URL,
+            # Embeddings go through the same tunnel as chat, so they need the
+            # same server-only headers and a timeout that ends before Vercel's.
+            client_kwargs={
+                "headers": ollama_headers(),
+                "timeout": OLLAMA_TIMEOUT,
+            },
         )
 
     return _embedding_model
@@ -1617,11 +1623,25 @@ async def upload_file(
                 ),
             )
 
-        chunk_count = add_to_rag(
-            session_id=session_id,
-            filename=original_name.name,
-            text=extracted_text,
-        )
+        try:
+            chunk_count = add_to_rag(
+                session_id=session_id,
+                filename=original_name.name,
+                text=extracted_text,
+            )
+        except Exception as exc:
+            # Indexing needs the Ollama embedding model. Keep the server-only
+            # Ollama URL out of the message that is returned to the browser.
+            reason = str(exc).replace(OLLAMA_BASE_URL, "[Ollama URL]")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    f"Could not index this file with the '{EMBEDDING_MODEL}' "
+                    "embedding model. Check that OLLAMA_BASE_URL points to a "
+                    "running Ollama server that has this model installed "
+                    f"(ollama pull {EMBEDDING_MODEL}). Details: {reason}"
+                ),
+            ) from exc
 
         conn = db_connection()
 
