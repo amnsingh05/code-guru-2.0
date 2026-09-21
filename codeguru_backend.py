@@ -149,7 +149,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 import httpx
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -398,6 +398,24 @@ def init_db() -> None:
             FOREIGN KEY(session_id) REFERENCES sessions(session_id)
         )
         """
+    )
+
+    # Plain-text chunks of every uploaded file. API (Groq) chats retrieve from
+    # these with keyword matching, so they never need Ollama embeddings.
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS file_chunks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT NOT NULL,
+            filename TEXT NOT NULL,
+            chunk_index INTEGER NOT NULL,
+            content TEXT NOT NULL,
+            FOREIGN KEY(session_id) REFERENCES sessions(session_id)
+        )
+        """
+    )
+    cur.execute(
+        "CREATE INDEX IF NOT EXISTS idx_file_chunks_session ON file_chunks(session_id)"
     )
 
     # Upgrade databases created before provider support was added.
@@ -1091,6 +1109,86 @@ def search_rag(
         return []
 
 
+KEYWORD_STOP_WORDS = {
+    "a", "an", "the", "is", "are", "was", "were", "be", "been", "am", "to",
+    "of", "in", "on", "at", "for", "with", "and", "or", "but", "not", "this",
+    "that", "these", "those", "it", "its", "what", "why", "how", "when",
+    "where", "which", "who", "can", "could", "would", "should", "you", "me",
+    "my", "your", "do", "does", "did", "i", "we", "please", "about", "from",
+    "into", "as", "by", "if", "so", "tell", "explain", "summarize", "summary",
+    "file", "document", "pdf", "uploaded", "give", "show",
+}
+
+
+def search_chunks_keyword(
+    session_id: str,
+    question: str,
+    top_k: int = TOP_K,
+) -> List[Document]:
+    """
+    Retrieve context for a session WITHOUT embeddings or Ollama.
+
+    Chunks are ranked by how many of the question's words they contain. When
+    the question has no useful words (for example "summarize this file"), the
+    first chunks of the uploaded files are used instead.
+    """
+    conn = db_connection()
+    rows = conn.execute(
+        """
+        SELECT filename, chunk_index, content
+        FROM file_chunks
+        WHERE session_id = ?
+        ORDER BY id ASC
+        """,
+        (session_id,),
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        return []
+
+    terms = {
+        word
+        for word in re.findall(r"[a-z0-9_]{2,}", question.lower())
+        if word not in KEYWORD_STOP_WORDS
+    }
+
+    selected = []
+
+    if terms:
+        scored = []
+
+        for position, row in enumerate(rows):
+            text = row["content"].lower()
+            score = 0.0
+
+            for term in terms:
+                count = text.count(term)
+                if count:
+                    score += 1 + min(count, 5) * 0.25
+
+            if score > 0:
+                scored.append((score, position))
+
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        selected = [rows[position] for _, position in scored[:top_k]]
+
+    if not selected:
+        selected = rows[:top_k]
+
+    return [
+        Document(
+            page_content=row["content"],
+            metadata={
+                "session_id": session_id,
+                "filename": row["filename"],
+                "chunk_index": row["chunk_index"],
+            },
+        )
+        for row in selected
+    ]
+
+
 def format_rag_context(
     documents: List[Document],
 ) -> str:
@@ -1466,6 +1564,11 @@ def delete_chat(session_id: str) -> Dict[str, Any]:
     )
 
     conn.execute(
+        "DELETE FROM file_chunks WHERE session_id = ?",
+        (session_id,),
+    )
+
+    conn.execute(
         "DELETE FROM sessions WHERE session_id = ?",
         (session_id,),
     )
@@ -1513,6 +1616,7 @@ def clear_all_chats() -> Dict[str, Any]:
 
     conn.execute("DELETE FROM messages")
     conn.execute("DELETE FROM files")
+    conn.execute("DELETE FROM file_chunks")
     conn.execute("DELETE FROM sessions")
 
     conn.commit()
@@ -1561,12 +1665,20 @@ def clear_all_chats() -> Dict[str, Any]:
 async def upload_file(
     session_id: str,
     file: UploadFile = File(...),
+    provider: Optional[str] = Form(default=None),
 ) -> Dict[str, Any]:
     if not session_exists(session_id):
         raise HTTPException(
             status_code=404,
             detail="Chat session not found. Create a chat first.",
         )
+
+    # Only Ollama chats index files with Ollama embeddings. API (Groq) chats
+    # store plain text chunks instead, so OLLAMA_BASE_URL is not used at all.
+    session = get_session(session_id) or {}
+    provider_name = validate_provider(
+        provider or session.get("provider") or "ollama"
+    )
 
     original_name = Path(file.filename or "uploaded_file")
     extension = original_name.suffix.lower()
@@ -1624,12 +1736,20 @@ async def upload_file(
                 ),
             )
 
+        chunk_documents = make_chunks(
+            text=extracted_text,
+            filename=original_name.name,
+            session_id=session_id,
+        )
+        chunk_count = len(chunk_documents)
+
         try:
-            chunk_count = add_to_rag(
-                session_id=session_id,
-                filename=original_name.name,
-                text=extracted_text,
-            )
+            if provider_name == "ollama":
+                chunk_count = add_to_rag(
+                    session_id=session_id,
+                    filename=original_name.name,
+                    text=extracted_text,
+                )
         except Exception as exc:
             # Indexing needs the Ollama embedding model. Keep the server-only
             # Ollama URL out of the message that is returned to the browser.
@@ -1665,6 +1785,23 @@ async def upload_file(
                 )[0],
                 now_iso(),
             ),
+        )
+
+        conn.executemany(
+            """
+            INSERT INTO file_chunks
+            (session_id, filename, chunk_index, content)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                (
+                    session_id,
+                    original_name.name,
+                    document.metadata["chunk_index"],
+                    document.page_content,
+                )
+                for document in chunk_documents
+            ],
         )
 
         conn.commit()
@@ -1773,15 +1910,23 @@ async def chat(request: ChatRequest) -> Any:
     )
 
     # Search only this session's uploaded documents.
-    # Groq can answer ordinary chats without Ollama. Ollama embeddings are
-    # needed only after a file has been uploaded for this session's RAG store.
+    # Ollama chats search the embedding store. API (Groq) chats never contact
+    # Ollama: they use keyword search over the stored text chunks instead.
     rag_documents: List[Document] = []
     if session_has_files(request.session_id):
-        rag_documents = search_rag(
-            request.session_id,
-            request.message,
-            top_k=TOP_K,
-        )
+        if provider_name == "ollama":
+            rag_documents = search_rag(
+                request.session_id,
+                request.message,
+                top_k=TOP_K,
+            )
+
+        if not rag_documents:
+            rag_documents = search_chunks_keyword(
+                request.session_id,
+                request.message,
+                top_k=TOP_K,
+            )
 
     rag_context = format_rag_context(
         rag_documents

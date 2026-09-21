@@ -285,7 +285,7 @@
     try {
       for (const file of Array.from(files)) {
         if (file.size > maxUploadMb * 1024 * 1024) throw new Error(file.name + ' is over the ' + maxUploadMb + ' MB upload limit' + (usesHostedBackend ? ' for the hosted site.' : '.'));
-        await api.upload(activeChatId, file);
+        await api.upload(activeChatId, file, selectedProvider());
       }
       uploadedFiles = (await api.getFiles(activeChatId)).files || [];
       renderFiles();

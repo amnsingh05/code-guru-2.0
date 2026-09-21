@@ -98,9 +98,10 @@
     deleteChat: sessionId => request('/api/chats/' + encodeURIComponent(sessionId), { method: 'DELETE' }),
     clearChats: () => request('/api/chats', { method: 'DELETE' }),
     getFiles: sessionId => request('/api/files/' + encodeURIComponent(sessionId), {}, 30000),
-    upload: (sessionId, file) => {
+    upload: (sessionId, file, provider) => {
       const data = new FormData();
       data.append('file', file);
+      if (provider) data.append('provider', provider);
       return request('/api/upload/' + encodeURIComponent(sessionId), { method: 'POST', body: data }, 180000);
     },
     sendMessage: ({ sessionId, message, model, feature, provider, apiKey }) => request('/api/chat', {
