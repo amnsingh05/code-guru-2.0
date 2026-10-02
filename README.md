@@ -811,15 +811,6 @@ For local development, the recommended workflow is:
 - LinkedIn: [Aman Singh](https://www.linkedin.com/in/amnsingh0/)
 
 Aman leads the CodeGuru 2.0 project and is responsible for the main project development and integration.
-
-## Aksh Jain — Collaborator
-
-- LinkedIn: [Aksh Jain](https://www.linkedin.com/in/aksh-jain-58a705203/)
-
-## Aaryan Sharma — Collaborator
-
-- LinkedIn: [Aaryan Sharma](https://www.linkedin.com/in/aaryan-sharma-a341a732b/)
-
 ---
 
 # 🔗 Repository
